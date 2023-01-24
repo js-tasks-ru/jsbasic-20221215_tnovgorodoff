@@ -8,7 +8,7 @@ export default class RibbonMenu {
   }
 
   initRibbonMenu() {
-    this.initRibbonMenu();
+    this.createRibbonMenu();
     this.scrolling();
     this.selectCategory();
   }
@@ -39,8 +39,7 @@ export default class RibbonMenu {
   // кнопки прокрутки влево-вправо самой ленты
   createButton() {
     const buttons = {};
-    const buttonArrowLeft = `<button class="ribbon__arrow ribbon__arrow_left
-    ">
+    const buttonArrowLeft = `<button class="ribbon__arrow ribbon__arrow_left ribbon__arrow_visible">
     <img src="/assets/images/icons/angle-icon.svg" alt="icon">
   </button>`;
     const buttonArrowRight = `<button class="ribbon__arrow ribbon__arrow_right ribbon__arrow_visible">
@@ -72,13 +71,13 @@ export default class RibbonMenu {
 
       return scroll;
     }
-    // прописываем логику работы левого и правого скроллов
-    this.elem.addEventListener('click', function (event) {
+    // прописываем логику работы левого и правого скроллов при кликах
+    this.elem.addEventListener('click', function (mouseClick) {
 
       function rightScroll() {
-        if (event.closest('.ribbon__arrow_right')) {
+        if (mouseClick.target.closest('.ribbon__arrow_right')) {
 
-          ribbonInner.scrollBy(350, 0);
+          ribbonInner.scrollBy(350, 0); // положительное значение для прокрутки вперёд
 
           ribbonInner.addEventListener('scroll', function () {
             const scrollRight = calculateScrolling().scrollRight;
@@ -87,7 +86,7 @@ export default class RibbonMenu {
               buttonArrowLeft.classList.add('ribbon__arrow_visible');
             };
 
-            if (scrollRight === 0) {
+            if (scrollRight === 0) { // «упёрлись» в крайний слайд и нужно скрыть кнопку вперёд
               buttonArrowRight.classList.remove('ribbon__arrow_visible');
             };
 
@@ -96,9 +95,9 @@ export default class RibbonMenu {
       };
 
       function leftScroll() {
-        if (event.target.closest('.ribbon__arrow_left')) {
+        if (mouseClick.target.closest('.ribbon__arrow_left')) {
 
-          ribbonInner.scrollBy(-350, 0);
+          ribbonInner.scrollBy(-350, 0); // отрицательное значение для прокрутки назад
 
           ribbonInner.addEventListener('scroll', function () {
             const scrollLeft = calculateScrolling().scrollLeft;
@@ -127,12 +126,12 @@ export default class RibbonMenu {
     ribbonInner.addEventListener('click', (event) => {
       ribbonItem.forEach(item => {
         item.classList.remove('ribbon__item_active');
-      });
+      }); // делаем неактивным элемент
 
-      event.classList.add('ribbon__item_active');
+      event.target.classList.add('ribbon__item_active');
 
       this.elem.dispatchEvent(new CustomEvent("ribbon-select", {
-        detail: event.dataset.id,
+        detail: event.target.dataset.id,
         bubbles: true,
       }))
     })
