@@ -1,6 +1,5 @@
 import createElement from '../../assets/lib/create-element.js';
 import escapeHtml from '../../assets/lib/escape-html.js';
-
 import Modal from '../../7-module/2-task/index.js';
 
 export default class Cart {
@@ -13,23 +12,56 @@ export default class Cart {
   }
 
   addProduct(product) {
-    // СКОПИРУЙТЕ СЮДЯ СВОЙ КОД
+    if (!product)
+      return;
+
+    const { id } = product;
+    let cartItem = this.cartItems.find(({ product }) => product.id === id);
+
+    if (cartItem) {
+      cartItem.count += 1;
+    } else {
+      cartItem = {
+        product,
+        count: 1,
+      };
+      this.cartItems.push(cartItem);
+    }
+    this.onProductUpdate(cartItem);
   }
 
   updateProductCount(productId, amount) {
-    // СКОПИРУЙТЕ СЮДЯ СВОЙ КОД
+    const cartItem = this.cartItems.find(
+      ({ product }) => product.id === productId
+    );
+
+    if (!cartItem)
+      return;
+
+    cartItem.count += amount;
+
+    if (!cartItem.count) {
+      this.cartItems = this.cartItems.filter(
+        ({ product: { id } }) => productId !== id
+      );
+    }
+
+    this.onProductUpdate(cartItem);
   }
 
   isEmpty() {
-    // СКОПИРУЙТЕ СЮДЯ СВОЙ КОД
+    return !this.cartItems.length;
   }
 
   getTotalCount() {
-    // СКОПИРУЙТЕ СЮДЯ СВОЙ КОД
+    return this.cartItems.reduce((acc, { count }) => acc + count, 0);
   }
 
   getTotalPrice() {
-    // СКОПИРУЙТЕ СЮДЯ СВОЙ КОД
+    return this.cartItems.reduce(
+      (acc, { product: { price }, count }) => acc + price * count,
+      0
+    );
   }
 
   renderProduct(product, count) {
@@ -83,19 +115,144 @@ export default class Cart {
     </form>`);
   }
 
-  renderModal() {
-    // ...ваш код
+  renderProductCards() {
+    return this.cartItems.map(({ product, count }) =>
+      this.renderProduct(product, count)
+    );
   }
 
+  // отрисовываем модальное окно корзины
+  renderModal() {
+    const modal = new Modal();
+    this.modal = modal;
+
+    this.initModalContent();
+    this.onChangeCount();
+
+    const form = document.forms[0];
+
+    form.onsubmit = (event) => this.onSubmit(event, form);
+  }
+
+  // вспомогательная функция для отображения карточек товаров внутри корзины
+  initModalContent() {
+    const div = document.createElement("div");
+
+    div.append(...this.renderProductCards(), this.renderOrderForm());
+
+    this.modal.open();
+    this.modal.setTitle("Your order"); // from 7-module
+    this.modal.setBody(div); // from 7-module
+  }
+
+  // вспомогательная функция для изменения кол-ва товаров по кнопкам
+  onChangeCount() {
+    const body = document.querySelector(".modal__body");
+
+    body.onclick = ({ target }) => {
+      const card = target.closest("[data-product-id]");
+
+      if (!card)
+        return;
+
+      const { productId } = card.dataset;
+
+      if (target.closest(".cart-counter__button_plus")) {
+        this.updateProductCount(productId, 1);
+      }
+
+      if (target.closest(".cart-counter__button_minus")) {
+        this.updateProductCount(productId, -1);
+      }
+    };
+  }
+
+  // вспомогательная функция изменения цен и суммы
+  updateModalContent(modal, cartItem) {
+    const { id } = cartItem.product;
+    const item = modal.querySelector(`[data-product-id="${id}"]`);
+
+    this.updateTextCount(item, cartItem);
+    this.updateTextPrice(item, cartItem);
+    this.updateTextTotalPrice();
+
+    if (this.isEmpty()) {
+      modal.remove();
+    }
+  }
+
+  // вспомогательная функция, возвращает количество товаров с таким productId в корзине
+  updateTextCount(item, { count }) {
+    if (!count) {
+      item.remove();
+    }
+
+    if (item) {
+      item.querySelector(".cart-counter__count").textContent = count;
+    }
+  }
+
+  // вспомогательная функция, возвращает общую стоимость всех единиц этого товара
+  updateTextPrice(item, { product: { price }, count }) {
+    const text = `€${(price * count).toFixed(2)}`;
+
+    item.querySelector(".cart-product__price").textContent = text;
+  }
+
+  // вспомогательная функция, возвращает суммарную стоимость всех товаров
+  updateTextTotalPrice() {
+    const infoPrice = document.querySelector(".cart-buttons__info-price");
+    const total = `€${this.getTotalPrice().toFixed(2)}`;
+
+    infoPrice.textContent = total;
+  }
+
+  // обновление верстки модального окна корзины при изменении количества товара cartItem
   onProductUpdate(cartItem) {
-    // ...ваш код
+    const modal = document.querySelector(".modal");
+
+    if (modal) {
+      this.updateModalContent(modal, cartItem);
+    }
 
     this.cartIcon.update(this);
   }
 
-  onSubmit(event) {
-    // ...ваш код
-  };
+  // вспомогательные функции уведомлений по успешной отправке данных
+  renderSuccessContent() {
+    return createElement(`
+      <div class="modal__body-inner">
+        <p>
+          Order successful! Your order is being cooked :) <br>
+          We’ll notify you about delivery time shortly.<br>
+          <img src="/assets/images/delivery.gif">
+        </p>
+      </div>
+    `);
+  }
+
+  initSuccessModalContent() {
+    this.modal.setTitle("Success!");
+    this.modal.setBody(this.renderSuccessContent());
+    this.cartItems = [];
+    this.cartIcon.elem.classList.remove("cart-icon_visible");
+  }
+
+  // отправляем данные пользователя для размещения заказа
+  onSubmit(event, form) {
+    event.preventDefault();
+    const btn = document.querySelector('button[type="submit"]');
+    btn.classList.add("is-loading");
+
+    fetch("https://httpbin.org/post", {
+      method: "POST",
+      body: new FormData(form),
+    }).then((response) => {
+      if (response.ok) {
+        this.initSuccessModalContent();
+      }
+    });
+  }
 
   addEventListeners() {
     this.cartIcon.elem.onclick = () => this.renderModal();
